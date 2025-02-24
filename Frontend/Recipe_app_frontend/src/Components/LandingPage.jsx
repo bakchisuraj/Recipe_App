@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const LandingPage = () => {
     const [currentImage, setCurrentImage] = useState(0);
+    const navigate = useNavigate();
     const heroImages = [
         "https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1500&q=80",
         "https://images.unsplash.com/photo-1606787366850-de6330128bfc?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1500&q=80",
@@ -47,6 +48,85 @@ const LandingPage = () => {
     // Modal state for login/signup
     const [showModal, setShowModal] = useState(false);
     const [isLogin, setIsLogin] = useState(true);
+    
+    // Form state
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        password: ''
+    });
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // Handle input changes
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            [name]: value
+        });
+    };
+
+    // Handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const endpoint = isLogin ? 'https://recipe-app-tb6e.onrender.com/login' : 'https://recipe-app-tb6e.onrender.com/register';
+            
+            // Prepare the request body
+            const requestBody = isLogin 
+                ? { email: formData.email, password: formData.password }
+                : { fullName: formData.fullName, email: formData.email, password: formData.password };
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Authentication failed');
+            }
+            
+            // If login/signup successful
+            setSuccess(isLogin ? 'Login successful!' : 'Account created successfully!');
+            
+            // Store the token in localStorage
+            localStorage.setItem('authToken', data.token);
+            
+            // Close modal after successful login/signup
+            setTimeout(() => {
+                setShowModal(false);
+                // Redirect to dashboard or recipes page
+                navigate('/home');
+            }, 1500);
+            
+        } catch (err) {
+            setError(err.message || 'An error occurred');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Reset form when switching between login and signup
+    useEffect(() => {
+        setFormData({
+            fullName: '',
+            email: '',
+            password: ''
+        });
+        setError('');
+        setSuccess('');
+    }, [isLogin]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -208,7 +288,7 @@ const LandingPage = () => {
                             Create Free Account
                         </button>
                         <Link 
-                            to="/recipes" 
+                            to="/home" 
                             className="px-8 py-3 border border-cyan-600 text-cyan-600 hover:bg-cyan-50 font-medium rounded-lg transition-colors"
                         >
                             Browse Recipes
@@ -275,7 +355,7 @@ const LandingPage = () => {
                 </div>
             </footer>
 
-            {/* Login/Signup Modal */}
+            {/* Login/Signup Modal with API Integration */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
@@ -291,37 +371,70 @@ const LandingPage = () => {
                             </button>
                         </div>
                         <div className="p-6">
-                            <form>
+                            {/* Display error message if any */}
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+                                    {error}
+                                </div>
+                            )}
+                            
+                            {/* Display success message if any */}
+                            {success && (
+                                <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+                                    {success}
+                                </div>
+                            )}
+                            
+                            <form onSubmit={handleSubmit}>
                                 {!isLogin && (
                                     <div className="mb-4">
                                         <label className="block text-gray-700 text-sm font-medium mb-2">Full Name</label>
                                         <input 
                                             type="text" 
+                                            name="fullName"
+                                            value={formData.fullName}
+                                            onChange={handleInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                             placeholder="Enter your name"
+                                            required={!isLogin}
                                         />
                                     </div>
                                 )}
                                 <div className="mb-4">
                                     <label className="block text-gray-700 text-sm font-medium mb-2">Email Address</label>
                                     <input 
-                                        type="email" 
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleInputChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                         placeholder="Enter your email"
+                                        required
                                     />
                                 </div>
                                 <div className="mb-6">
                                     <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
                                     <input 
-                                        type="password" 
+                                        type="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleInputChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-cyan-500"
                                         placeholder="Enter your password"
+                                        required
                                     />
                                 </div>
                                 <button 
                                     type="submit"
-                                    className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-4 rounded transition-colors"
+                                    className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-4 rounded transition-colors flex justify-center items-center"
+                                    disabled={isLoading}
                                 >
+                                    {isLoading ? (
+                                        <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : null}
                                     {isLogin ? 'Log In' : 'Sign Up'}
                                 </button>
                             </form>
